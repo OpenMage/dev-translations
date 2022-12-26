@@ -2,16 +2,9 @@
     "name": "openmage/dev-translations",
     "description": "Finds missing and unused translations.",
     "license": "OSL-3.0",
-    "scripts": {
-        "copy-file": [
-            "cp src/shell/update-copyright.php ./shell/update-copyright.php"
-        ],
-        "post-install-cmd": [
-            "@copy-file"
-        ],
-        "post-update-cmd": [
-            "@copy-file"
-        ]
+    "type": "magento-module",
+    "require": {
+        "magento-hackathon/magento-composer-installer": "*"
     },
     "authors": [
         {
