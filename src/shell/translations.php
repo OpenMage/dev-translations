@@ -65,7 +65,7 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
             $this->_stdin = true;
         } else {
             $files = array_merge(
-            // Grep for all files that might call the __ function
+                // Grep for all files that might call the __ function
                 explode("\n", (string)shell_exec("grep -Frl --exclude-dir='.git' --include=*.php --include=*.phtml '__' .")),
                 // Grep for all XML files that might use the translate attribute
                 explode("\n", (string)shell_exec("grep -Frl --exclude-dir='.git' --include=*.xml 'translate=' ."))
