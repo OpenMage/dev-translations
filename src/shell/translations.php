@@ -164,8 +164,6 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
 
     /**
      * Find deprecated usage of global __ function
-     *
-     * @return void
      */
     protected function findDeprecated(): void
     {
