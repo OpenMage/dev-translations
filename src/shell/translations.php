@@ -33,7 +33,7 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     /**
      * Remember if we used stdin for file list
      *
-     * @var boolean
+     * @var bool
      */
     protected $_stdin;
 
