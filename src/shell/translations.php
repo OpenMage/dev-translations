@@ -9,7 +9,7 @@
  *
  * @category   Mage
  * @package    Mage_Shell
- * @copyright  Copyright (c) 2022 The OpenMage Contributors (https://www.openmage.org)
+ * @copyright  Copyright (c) 2022-2026 The OpenMage Contributors (https://www.openmage.org)
  * @license    https://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
 
@@ -61,9 +61,9 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
         } else {
             $files = array_merge(
                 // Grep for all files that might call the __ function
-                explode("\n", (string) shell_exec("grep -Frl --exclude-dir='.git' --include=*.php --include=*.phtml '__' .")),
+                explode("\n", (string) shell_exec("grep -Frl --exclude-dir=vendor --exclude-dir=lib --exclude-dir=media --exclude-dir='.git' --include=*.php --include=*.phtml '__' .")),
                 // Grep for all XML files that might use the translate attribute
-                explode("\n", (string) shell_exec("grep -Frl --exclude-dir='.git' --include=*.xml 'translate=' .")),
+                explode("\n", (string) shell_exec("grep -Frl --exclude-dir=vendor --exclude-dir=lib --exclude-dir=media --exclude-dir='.git' --include=*.xml 'translate=' .")),
             );
         }
         return array_filter(array_map('trim', $files));
@@ -77,12 +77,8 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     protected function getDefinedStrings(): array
     {
         $map = [];
-        $lang = $this->getArg('lang');
 
-        if (!is_string($lang)) {
-            $lang = 'en_US';
-        }
-
+        $lang = $this->getLanguage();
         $files = glob("app/locale/$lang/*.csv");
         if (!is_array($files)) {
             return $map;
@@ -163,6 +159,18 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     }
 
     /**
+     * Get language code to check in app/locale
+     */
+    protected function getLanguage(): string
+    {
+        $lang = $this->getArg('lang');
+        if (!is_string($lang) ||$lang === '') {
+            $lang = 'en_US';
+        }
+        return $lang;
+    }
+
+    /**
      * Find deprecated usage of global __ function
      */
     protected function findDeprecated(): void
@@ -215,6 +223,73 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     }
 
     /**
+     * Find used translation strings that are not defined
+     */
+    protected function findMissing(): void
+    {
+        $definedFileMap = $this->getDefinedStrings();
+        $usedFileMap = $this->getUsedStrings();
+
+        $definedFlat = array_unique(array_merge(...array_values($definedFileMap)));
+        $usedFlat = array_unique(array_merge(...array_values($usedFileMap)));
+
+        if ($this->getArg('verbose')) {
+            foreach ($usedFileMap as $file => $used) {
+                $missing = array_diff($used, $definedFlat);
+                if (count($missing)) {
+                    echo "$file\n    " . implode("\n    ", $missing) . "\n\n";
+                }
+            }
+        } else {
+            $missing = array_diff($usedFlat, $definedFlat);
+            sort($missing);
+            echo implode("\n", $missing) . "\n";
+        }
+    }
+
+    /**
+     * Find defined translation strings that are not used in any template
+     */
+    protected function findUnused(): void
+    {
+        $definedFileMap = $this->getDefinedStrings();
+        $usedFileMap = $this->getUsedStrings();
+
+        $definedFlat = array_unique(array_merge(...array_values($definedFileMap)));
+        $usedFlat = array_unique(array_merge(...array_values($usedFileMap)));
+
+        if ($this->_stdin) {
+            echo "stdin file list cannot be used with the 'unused' mode.\n";
+            exit;
+        }
+        if ($this->getArg('verbose')) {
+            foreach ($definedFileMap as $file => $defined) {
+                $unused = array_diff($defined, $usedFlat);
+                if (count($unused)) {
+                    echo "$file\n    " . implode("\n    ", $unused) . "\n\n";
+                }
+            }
+        } else {
+            $unused = array_diff($definedFlat, $usedFlat);
+            sort($unused);
+            echo implode("\n", $unused) . "\n";
+        }
+
+        if ($this->getArg('fix')) {
+            foreach ($definedFileMap as $file => $defined) {
+                $unused = array_diff($defined, $usedFlat);
+                if (count($unused)) {
+                    $data = array_map(function ($line) use ($unused) {
+                        return in_array($line[0], $unused) ? null : $line;
+                    }, $this->getCsvData($file));
+                    $this->saveCsvData($file, array_filter($data));
+                }
+            }
+            echo "Unused translations have been removed.\n";
+        }
+    }
+
+    /**
      * Run script
      *
      * @return void
@@ -222,52 +297,39 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     public function run()
     {
         if ($this->getArg('missing')) {
-            $definedFileMap = $this->getDefinedStrings();
-            $usedFileMap = $this->getUsedStrings();
-
-            $definedFlat = array_unique(array_merge(...array_values($definedFileMap)));
-            $usedFlat = array_unique(array_merge(...array_values($usedFileMap)));
-
-            if ($this->getArg('verbose')) {
-                foreach ($usedFileMap as $file => $used) {
-                    $missing = array_diff($used, $definedFlat);
-                    if (count($missing)) {
-                        echo "$file\n    " . implode("\n    ", $missing) . "\n\n";
-                    }
-                }
-            } else {
-                $missing = array_diff($usedFlat, $definedFlat);
-                sort($missing);
-                echo implode("\n", $missing) . "\n";
-            }
+            $this->findMissing();
         } elseif ($this->getArg('unused')) {
-            $definedFileMap = $this->getDefinedStrings();
-            $usedFileMap = $this->getUsedStrings();
-
-            $definedFlat = array_unique(array_merge(...array_values($definedFileMap)));
-            $usedFlat = array_unique(array_merge(...array_values($usedFileMap)));
-
-            if ($this->_stdin) {
-                echo "stdin file list cannot be used with the 'unused' mode.\n";
-                exit;
-            }
-            if ($this->getArg('verbose')) {
-                foreach ($definedFileMap as $file => $defined) {
-                    $unused = array_diff($defined, $usedFlat);
-                    if (count($unused)) {
-                        echo "$file\n    " . implode("\n    ", $unused) . "\n\n";
-                    }
-                }
-            } else {
-                $unused = array_diff($definedFlat, $usedFlat);
-                sort($unused);
-                echo implode("\n", $unused) . "\n";
-            }
+            $this->findUnused();
         } elseif ($this->getArg('deprecated')) {
             $this->findDeprecated();
         } else {
             echo $this->usageHelp();
         }
+    }
+
+    /**
+     * @param string $file
+     * @return array
+     */
+    protected function getCsvData(string $file): array
+    {
+        $parser = new Varien_File_Csv();
+        return $parser->getData($file);
+    }
+
+    /**
+     * @param string $file
+     * @param array $data
+     * @return void
+     */
+    protected function saveCsvData(string $file, array $data): void
+    {
+        usort($data, function ($a, $b) {
+            return strcmp($a[0], $b[0]);
+        });
+
+        $parser = new Varien_File_Csv();
+        $parser->saveData($file, $data);
     }
 
     /**
