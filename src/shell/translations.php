@@ -164,7 +164,7 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     protected function getLanguage(): string
     {
         $lang = $this->getArg('lang');
-        if (!is_string($lang) ||$lang === '') {
+        if (!is_string($lang) || $lang === '') {
             $lang = 'en_US';
         }
         return $lang;
@@ -308,7 +308,7 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     }
 
     /**
-     * @param string $file
+     * @param  string $file
      * @return array
      */
     protected function getCsvData(string $file): array
@@ -318,8 +318,8 @@ class Mage_Shell_Translation extends Mage_Shell_Abstract
     }
 
     /**
-     * @param string $file
-     * @param array $data
+     * @param  string $file
+     * @param  array  $data
      * @return void
      */
     protected function saveCsvData(string $file, array $data): void
